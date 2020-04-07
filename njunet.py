@@ -3,6 +3,7 @@
 使用：
     登陆：python njunet.py login
     登出：python njunet.py logout
+    更新：python njunet.py update
     帮助：python njunet.py --help
 账号密码可在输入上述命令后提示输入。也可写在此文件的usernmae和password变量中，
 避免每次都要输入。
@@ -21,6 +22,9 @@ import time
 import argparse
 import getpass
 import subprocess
+
+# 不要自行更改版本信息
+__version__ = "0.1.0"
 
 ###############################################################################
 # 设置账号密码
@@ -255,22 +259,77 @@ def logout(userCheck: str = None):
             return doLogout()
 
 
+def update():
+    tempFile = "temp.py"
+
+    def versionCmp(newVersion: str, version: str) -> bool:
+        # return True if newer
+        nv = newVersion.split('.')
+        v = version.split('.')
+        for i, j in zip(nv, v):
+            if int(i) > int(j):
+                return True
+        return False
+
+    def checkUpdate():
+        url = "https://raw.githubusercontent.com/Pavinberg/njuNetLogin/master/njunet.py"
+        r = requests.get(url)
+        lines = r.content.decode("utf8").split("\n")[:-1]
+        with open(__file__, 'r') as fp:
+            shebang = fp.readline()
+        if shebang[:2] != "#!":
+            shebang = ""
+        with open(tempFile, "w") as fp:
+            # maintain shebang, username, password
+            fp.write(shebang)
+            flag = 0
+            for line in lines:
+                line += "\n"
+                if flag == 0:
+                    if "__version__" in line:
+                        newVersion = re.findall(r"\d.\d.\d", line)[0]
+                        if not versionCmp(newVersion, __version__):
+                            return None
+                        flag = 1
+                elif flag == 1:
+                    if line[0] != "#" and "username" in line:
+                        line = f"username = \"{username}\"\n"
+                        flag = 2
+                elif flag == 2:
+                    if line[0] != "#" and "password" in line:
+                        line = f"password = \"{password}\"\n"
+                        flag = 3
+                fp.write(line)
+        return newVersion
+
+    print("正在获取更新...")
+    newVersion = checkUpdate()
+    if newVersion:
+        subprocess.run(["cp", tempFile, __file__])  # overwrite this script
+        print(f"已成功更新至 {newVersion}")
+    else:
+        print("已是最新版本")
+    subprocess.run(["rm", tempFile])  # clean
+
+
 def main():
     if len(sys.argv) == 1:
         print(f"usage:\n    登陆: 'python njunet.py login'"
-              f"\n    登出: 'python njunet.py logout'")
+              f"\n    登出: 'python njunet.py logout'"
+              f"\n    更新：'python njunet.py update'")
         sys.exit()
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=["login", "logout"],
-                        help=f"choose from login/logout to "
-                        f"login or logout the NJU network")
+    parser.add_argument("action", choices=["login", "logout", "update"],
+                        help=f"login/logout the NJU network or update script")
     parser.add_argument("--user", "-u",
                         help="specify id to check when login/logout")
     args = parser.parse_args()
     if args.action == "login":
         login(args.user)
-    else:
+    elif args.action == "logout":
         logout(args.user)
+    else:
+        update()
 
 
 if __name__ == '__main__' :
