@@ -272,7 +272,8 @@ def update():
         return False
 
     def checkUpdate():
-        url = "https://raw.githubusercontent.com/Pavinberg/njuNetLogin/master/njunet.py"
+        # url = "https://raw.githubusercontent.com/Pavinberg/njuNetLogin/master/njunet.py"
+        url = "https://gitee.com/pavinberg/njuNetLogin/raw/master/njunet.py"
         r = requests.get(url)
         lines = r.content.decode("utf8").split("\n")[:-1]
         with open(__file__, 'r') as fp:
@@ -289,7 +290,7 @@ def update():
                     if "__version__" in line:
                         newVersion = re.findall(r"\d.\d.\d", line)[0]
                         if not versionCmp(newVersion, __version__):
-                            return None
+                            return False
                         flag = 1
                 elif flag == 1:
                     if line[0] != "#" and "username" in line:
@@ -300,13 +301,12 @@ def update():
                         line = f"password = \"{password}\"\n"
                         flag = 3
                 fp.write(line)
-        return newVersion
+        return True
 
     print("正在获取更新...")
-    newVersion = checkUpdate()
-    if newVersion:
+    if checkUpdate():
         subprocess.run(["cp", tempFile, __file__])  # overwrite this script
-        print(f"已成功更新至 {newVersion}")
+        print(f"更新成功")
     else:
         print("已是最新版本")
     subprocess.run(["rm", tempFile])  # clean
