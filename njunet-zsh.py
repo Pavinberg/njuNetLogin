@@ -79,19 +79,21 @@ def printInfo():
 
     userinfo = getUserInfo()
     if not userinfo:
-        print("Error: 网络错误，可能由于不在校园网环境下")
+        print(f"Warning: 已接入外网，但不能获得用户信息，"
+              f"可能是校园网状况不稳定，或可能由于不在校园网环境下")
         sys.exit()
     print(f"账户：{userinfo['fullname']} {userinfo['username']}")
     balance = userinfo["account_balance"] / 10  # cents
 
     timeinfo = getTimeInfo()
     if not timeinfo:
-        print(f"Error: 网络异常，可能是校园网状况不稳定。"
-              f"不能确定是否登陆成功，请重试或用浏览器查看情况")
+        print(f"Warning: 读取时长信息失败，可能是校园网状况不稳定。"
+              f"一般来说此时已经登陆了校园网，请稍后输入登陆命令查看余额信息"
+              f"或用浏览器查看情况")
         sys.exit()
     totTime = timeinfo["total_time"]  # seconds
 
-    PRICE = 360  # seconds per cent
+    PRICE = 180  # seconds per cent
     FREETIME = 30 * 3600  # seconds
     TOPTIME = 130 * 3600  # seconds
     paidTime = min(max(totTime - FREETIME, 0), TOPTIME - FREETIME)
@@ -111,7 +113,7 @@ def printInfo():
             print(f"余额不足本月封顶，还可使用 {h:.0f} 小时 {m:.0f} 分钟。")
         else:
             h, m, _ = formatTime(TOPTIME - totTime)
-            print(f"余额充足，距离封顶还有 {h}小时 {m}分钟。")
+            print(f"余额充足，距离封顶还有 {h} 小时 {m} 分钟。")
 
 
 def checkInternet():
@@ -161,7 +163,7 @@ def login(userCheck: str = None):
         print("登陆失败")
 
     if cont == 200:
-        time.sleep(1)  # wait before login finishes, or may fail to get info.
+        time.sleep(1)  # wait until login finishes, or may fail to get info.
         if checkInternet():
             print("\033[0;32;1m登陆校园网成功\033[0m")
             printInfo()
@@ -173,8 +175,9 @@ def login(userCheck: str = None):
 
 def checkProcess():
     ''' check if has background processes of yours '''
-    ignoringCmd = set(["ssh", "sshd:", "vim", "emacs", "ps"])
-    ignoringSess = re.compile(r"zsh|/sftp|/bin/bash|python")
+    ignoringCmd = set(["ssh", "sshd:", "vim", "emacs", "ps", "grep"])
+    ignoringSess = re.compile(r"zsh|/sftp|/bin/bash")
+    ignoringObj = re.compile(r"njunet.py")
     loginName = getpass.getuser()  # the login name of the user of the shell
     ps = subprocess.Popen(['ps', 'aux'], stdout=subprocess.PIPE)\
                    .communicate()[0]
@@ -185,9 +188,14 @@ def checkProcess():
     for row in processes[1:]:
         record = row.split(None, nfields)
         if record[0] == loginName:
-            command = record[-1].split()[0]
+            line = record[-1].split()
+            if len(line) >= 2:
+                command, obj = line[0:2]
+            else:
+                command, obj = line[0], ""
             if command not in ignoringCmd:
-                if not ignoringSess.search(command):
+                if not ignoringSess.search(command) \
+                   and not ignoringObj.search(obj):
                     recDict[record[-1]] += 1
     if len(recDict) == 0:
         return False
